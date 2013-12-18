@@ -1,0 +1,32 @@
+\section{Unified TPS and Trajectory Optimization}
+An implicit assumption made by Schulman et al. is that the result from trajectory optimization will have a warping cost that is similar to that of directly warping the demonstration tracjectory. For trajectories to generalize well, we would like the warping cost that registers both the scene correspondences \emph{and} the new trajectory to be smooth. If incorporating joint and collision avoidance into a trajectory deviates by too much from the warped demonstration, we have no reason to think that it will accomplish the same manipulation task. Figure~\ref{fig:holonomic_results} illustrates this situation in a toy example. The objective value for the trajectory found by first finding a thin plate spline and then incorporating joint and collision constraints is signifigantly worse.
+
+To account for this discrepancy, we propose directly optimizing for the warp and collision-free trajectory at the same time. This optimization can be formalized as follows:
+
+\begin{equation}
+\begin{aligned}
+  & \min_{f,\Theta,\Phi}
+  & & \sum_{i=1}^k ||\xt{i} - f(\xs{i})||_2^2 + \sum_{j=1}^n ||\mathbf{\phi}_t^{\emph{(j)}} - f(\mathbf{\phi}_s^{\emph{(j)}})||_2^2 + \lambda ||f||_{tps}^2 \\
+  & \text{ subject to}
+  & & \mathbf{\phi}_t^{\emph{(j)}} = \text{ForwardKinematics}(\mathbf{\theta}^{\emph{(j)}}), \; j = 1, \ldots, n \\
+  &
+  & & \mathbf{\theta}^{\emph(j)} \text{ is feasible}, \; j = 1, \ldots, n
+\end{aligned}
+\end{equation}
+
+Here, $f$ is the TPS function that warps points from the source scene to the target scene, and $\Theta$ is composed of the robot's joint angles $\theta^{(j)}$ at each time step $j$ for a feasible trajectory in the target scene. Applying forward kinematics to each $\mathbf{\theta}^{\emph(j)}$ gives the gripper pose $\mathbf{\phi}_t^{\emph{(j)}}$ at time step $j$. The first summation is over the $k$ pairs of scene correspondences, and the second summation is over the \emph{n} time steps of the trajectory. $\forall i$, \xs{i} and \xt{i} each refer to a correspondence point in the source and target scene, respectively. $\forall j$, $\mathbf{\phi}_s^{\emph{(j)}}$ is the gripper pose at time step $j$ of the trajectory in the demonstration. $\lambda ||f||_{tps}^2$ is a regularization term that encourages the warping function $f$ to be smooth.
+
+Since $f$ has the form
+$f(\mathbf{x}) = 
+\begin{bmatrix}
+A^\top &
+B^\top &
+\mathbf{c}^\top
+\end{bmatrix}
+\mathbf{b}$
+and the smoothness of $f$ is given by
+$||f||_{tps}^2 = \Tr(A^\top K A)$,
+optimizing over $f$ is equivalent to optimizing over the weights matrices $A$, $B$ and $\mathbf{c}$.
+
+
+We would expect this approach to provide two advantages over Schulman et al.'s approach (hereafter refered to as the two-step method) in two situations. The first situation arises when there exists an alternative warping function that effectively registers the scene points and warps the demonstration trajectory to a trajectory that is near-feasible. The second situation arises when we are choosing from a set of demonstrations to warp. The warping cost found by the two-step method may not accurately reflect how well a demonstration generalizes to the current scene. With our unified objective, we get an objective value that characterizes how well the warped trajectory generalizes to the demonstration. We conclude this section with experimental results for implementations of this approach for two different robotic systems. 

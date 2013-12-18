@@ -1,0 +1,111 @@
+The thin plate spline approach~\cite{Wahba1990} finds a function $f$ mapping between pairs of correspondence points that minimizes the smoothness of $f$:
+\begin{equation}
+\begin{align}
+ &\underset{f}{\text{minimize\ \ \ }} & ||f||_{tps}^2 \\
+ &\text{subject to\ \ \ }
+ & \xt{i} = f(\xs{i}) \\
+\end{align}
+\label{eq:tps}
+\end{equation}
+where \xs{i} and \xt{i}, $i = 1,...,k$, refer to pairs of correspondence points in the source and target scenes, respectively. The objective $||f||_{tps}^2$ is the TPS energy function,
+\begin{equation}
+||f||_{tps}^2 = \int d\mathbf{x} || D^2 f(\mathbf{x})||_{frob}^2,
+\label{eq:tps_energy}
+\end{equation}
+which is a measure of the curvature of the function.
+
+Alternatively, we can trade off between matching correspondence points and the smoothness of our curve with the following regularized objective
+\begin{equation}
+f = \underset{f}{\text{argmin}} \sum_{i=1}^k ||\xt{i} - f(\xs{i})||_2^2 + \lambda ||f||_{tps}^2,
+\label{eq:tps_reg}
+\end{equation}
+where the parameter $\lambda$ controls this tradeoff.
+
+Duchon showed the minimizer $f$ in Equation~\ref{eq:tps} can be expressed as a weighted sum of basis functions centered around the data points \xs{i}, in addition to an affine part~\cite{Duchon1977}. First, we define the basis functions $U$ in dimension $d$ as
+\begin{equation}
+U(\mathbf{x}) = \begin{cases}
+    c_0 ||\mathbf{x}||^{4-d} \text{ ln } ||\mathbf{x}||, & d = 2 \text{ or } d = 4\\
+    c_1 ||\mathbf{x}||^{4-d}, & \text{otherwise},
+  \end{cases}
+\end{equation}
+where $c_0$ and $c_1$ are constants.
+After factoring in the constant factor, when $d = 2$ we have $U(\mathbf{x}) = ||\mathbf{x}||^2 \ln||\mathbf{x}||$, and when $d = 3$ we have $U(\mathbf{x}) = -||\mathbf{x}||$.
+
+Then $f$ can be expressed as
+\begin{equation}
+f(\mathbf{x}) = 
+\begin{bmatrix}
+A \\
+B \\
+\mathbf{c}
+\end{bmatrix}^\top
+\mathbf{b}
+\end{equation}
+where $A$, $B$ and $\mathbf{c}$ are some weight matrices and $\mathbf{b}$ is a vector of the basis functions
+\begin{equation}
+\mathbf{b} =
+\begin{bmatrix} 
+  U(\mathbf{x} - \xs{1}) & U(\mathbf{x} - \xs{2}) & \cdots & U(\mathbf{x} - \xs{k}) & \mathbf{x}^\top & 1
+\end{bmatrix}^\top .
+\end{equation}
+
+The integral in Equation~\ref{eq:tps_energy} is only finite if the weights $A_{ij}$ of the non-affine part have vanishing moments
+\begin{equation}
+\sum_{i=1}^k A_{ij} \xs{i} = \mathbf{0}
+\text{\ and \ }
+\sum_{i=1}^k A_{ij} = 0
+\text{\ \ }
+\forall j=1,...,d
+.
+\end{equation}
+
+Given this constraint, the TPS energy function can be expressed in closed-form:
+\begin{equation}
+||f||_{tps}^2 = \Tr(A^\top K A)
+\end{equation}
+where $K$ is the kernel matrix
+\begin{equation}
+K = 
+\begin{bmatrix} 
+  U(\xs{1} - \xs{1}) & \cdots & U(\xs{1} - \xs{k}) \\
+  U(\xs{2} - \xs{1}) & \cdots & U(\xs{2} - \xs{k}) \\
+  \vdots &\ddots & \vdots \\
+  U(\xs{k} - \xs{1}) & \cdots & U(\xs{k} - \xs{k})
+\end{bmatrix}
+.
+\end{equation}
+
+Thus, the optimization problem of Equation~\ref{eq:tps} has a closed form solution as well; the weight matrices are given by solving the linear system
+\begin{equation}
+\begin{bmatrix} 
+  K & Q\\
+  Q^\top & \mathbf{0} 
+\end{bmatrix}
+\begin{bmatrix}
+A \\
+B \\
+\mathbf{c}
+\end{bmatrix} = D
+\end{equation}
+
+where
+
+\begin{equation}
+Q = 
+\begin{bmatrix} 
+  \xs{1}^\top & 1 \\
+  \xs{2}^\top & 1 \\
+  \vdots & \vdots \\
+  \xs{k}^\top & 1
+\end{bmatrix}
+\text{ and }
+D = 
+\begin{bmatrix} 
+  \xt{1}^\top \\
+  \xt{2}^\top \\
+  \vdots \\
+  \xt{k}^\top \\
+  \mathbf{0}
+\end{bmatrix}
+.
+\end{equation*}

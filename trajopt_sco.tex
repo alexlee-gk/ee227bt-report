@@ -1,0 +1,67 @@
+In a trajectory optimization problem, our goal is to find a sequence of controls to move a
+robot or dynamic system into a desired state. We would like to minimize some cost on the
+trajectory while adhering to the constraints that the path be feasible and collision free.
+A trajectory optimization problem can be described by a tuple:$$\langle X, U, O, x_0, G, f, c_T\rangle.$$
+Where $X$ is a set of states that our robot can inhabit and $U$ is a set of controls. $O \subset X$ is a set of
+states that must be avoided---typically this will be the volume of space occupied 
+by obstacles. $x_0 \in X$ is our initial state, and $G\subset X$ is a goal set.
+$f: X \times U \rightarrow X$ is a function that describes the dynamics of our problem, so that 
+$f(x', u) = x''$ means that applying the control $u$ in state $x'$ will take our robot to state $x''$.
+$c_T: (X \times U)^T \rightarrow \mathbb{R} $ is a cost function that measures the cost associated with 
+a sequence of controls and states. An example cost function might be deviation from a target trajectory or
+the length of the trajectory. With this terminology, we can formalize trajectory optimization
+as the following constrained optimization problem:
+\begin{align*}
+ &\underset{x_1,\ldots, x_T, u_1,\ldots, u_T}{\text{minimize\ \ \ }} & c_T(\{x_i, u_i\}) \\
+ &\text{subject to\ \ \ }
+ & x_i \in X \setminus O, &i = 1,\ldots, T\\
+ && u_i \in U , &i = 1,\ldots, T\\
+ && x_1 = x_0 \\ && x_T \in G \\
+ && x_{i+1} = f(x_i, u_i), &i = 1,\ldots,T-1
+\end{align*}
+
+For most interesting systems, this optimization problem will be non-convex. The set of collision free states, $X\setminus O$, is almost never convex. Even finding a collision free trajectory (ignoring costs) can be quite challenging.
+Furthermore, the dynamics of systems are typically non-linear. To deal with this, we follow the approach of Schulman et. al~\cite{schulman2013trajopt}.
+First, we introduce a \emph{signed distance} function, $sd_O: X \rightarrow \mathbb{R}$, which, given a state will return the smallest distance to an
+obstacle. If a state is in collision, this will be negative. This can be computed efficiently for a set of obstacles using the GJK algorithm~\cite{GJK}.
+By converting these constraints into penalties and incorporating them into the objective, we get the following objective, which is parameterized by a penalty coefficient, $\lambda$: 
+$$\overset{\sim}{c_T}(\{x_i, u_i\}, \lambda) = c_T(\{x_i, u_i\}) + \lambda\sum_i ||x_{i+1} - f(x_i, u_i)||^2 + \lambda \sum_i ||sd_O(x_i)||^2_+.$$
+
+ Then, by repeatedly minimizing this objective and increasing $\lambda$ we will arrive at a local optimum of this function. The hope is that this local optimum will satisfy the original constraints. For a particular $\lambda$, we minimize a series of approximations to $\overset{\sim}{c_T}$ that correspond to first order Taylor expansions of $f$ and $sd_O$ about a current point. Specifically, if $(\bf{x'}, \bf{u'})$ is a candidate solution, let $\overset{\sim}{f}$ and $\overset{\sim}{sd_O}$ be the first order taylor expansions of $f$ and $sd_O$ around $(\bf{x}, \bf{u})$. We will repeatedly solve optimization problems of the form:
+ \begin{equation}
+ \begin{align}
+ &\underset{x_1,\ldots, x_T, u_1,\ldots, u_T}{\text{minimize\ \ \ }} & c_T(\{x_i, u_i\}) + \lambda\sum_i ||x_{i+1} - \overset{\sim}{f}(x_i, u_i)||^2 + \lambda \sum_i ||\overset{\sim}{sd_O}(x_i)||^2_+ \\
+ &\text{subject to\ \ \ }
+ & x_i \in X , &i = 1,\ldots, T\\
+ && u_i \in U , &i = 1,\ldots, T\\
+  && |x_i - x'_i| \leq \epsilon, &i = 1,\ldots, T \\
+ && |u_i - u'_i| \leq \epsilon, &i = 1,\ldots, T \\
+ && x_1 = x_0 \\ && x_T \in G \\
+\end{align}
+\label{trajopt:sco}
+\end{equation}
+This will converge to a local optimum for a particular $\lambda$. In practice, this sequential convex approximation approach to trajectory optimization scales well and is competitive with other state-of-the-art trajectory optimization or motion planning approaches~\cite{schulman2013trajopt}~\cite{ratliff2009chomp}. Alg.~\ref{alg:sco} shows pseudocode for this optimization technique.
+
+\begin{algorithm}[H]
+ \KwData{$\langle X, U, O, x_0, G, f, c_T\rangle$}
+ \KwResult{Locally optimal trajectory and controls, $(x, u)$}
+ $\lambda = \lambda_0$\;
+ initialize $x, u$\;
+ \While{$\lambda < \lambda_{max}$}{
+  \While{True}{
+    compute Taylor expansion for $sd_O$, $f$ about $(x, u)$\;
+    let $(x', u')$ be the solution to \ref{trajopt:sco}\;
+    \eIf{$|(x', u') - (x, u)| < \epsilon_{tol}$}{
+        $(x, u) = (x', u')$\;
+        break\;
+    } {
+        $(x, u) = (x', u')$\;
+    }
+  }
+  \tcp{$C > 1$}
+  $\lambda = C\lambda $\;
+ }
+ 
+ \caption{Sequential Convex Optimization for Trajectory Optimization}
+ \label{alg:sco}
+\end{algorithm}
